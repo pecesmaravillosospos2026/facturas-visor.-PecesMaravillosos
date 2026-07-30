@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Factura</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;background:#f2f2f2;margin:0;padding:16px;color:#222}
+.ticket{max-width:380px;margin:0 auto;background:#fff;border-radius:10px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+h1{font-size:18px;margin:0 0 2px}
+.sub{color:#666;font-size:12px;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;border-bottom:2px solid #333;padding:4px 2px;font-size:11px;color:#555}
+td{padding:6px 2px;border-bottom:1px solid #eee}
+.c{text-align:center} .r{text-align:right}
+.total{display:flex;justify-content:space-between;margin-top:14px;font-size:20px;font-weight:bold;border-top:2px solid #333;padding-top:10px}
+.pagos{margin-top:10px;font-size:13px}
+.pago{display:flex;justify-content:space-between;padding:2px 0}
+.foot{margin-top:18px;text-align:center;color:#999;font-size:11px}
+.error{max-width:380px;margin:40px auto;text-align:center;color:#900}
+</style>
+</head>
+<body>
+<div id="app"><div class="error">Cargando factura...</div></div>
+
+<script>
+function b64UrlDecode(str) {
+  str = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (str.length % 4) str += "=";
+  const bytes = atob(str);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new TextDecoder("utf-8").decode(arr);
+}
+
+function esc(s) {
+  const d = document.createElement("div");
+  d.innerText = String(s);
+  return d.innerHTML;
+}
+
+function money(n) {
+  return "$" + Math.round(n).toLocaleString("es-CO");
+}
+
+function render() {
+  const app = document.getElementById("app");
+  const hash = window.location.hash.slice(1);
+  if (!hash) {
+    app.innerHTML = '<div class="error">No se encontró información de factura en el enlace.</div>';
+    return;
+  }
+  let data;
+  try {
+    data = JSON.parse(b64UrlDecode(hash));
+  } catch (e) {
+    app.innerHTML = '<div class="error">El enlace de la factura no es válido.</div>';
+    return;
+  }
+
+  const filasItems = (data.i || []).map(it =>
+    `<tr><td>${esc(it[0])}</td><td class="c">${esc(it[1])}</td>` +
+    `<td class="r">${money(it[2])}</td><td class="r">${money(it[1]*it[2])}</td></tr>`
+  ).join("");
+
+  const filasPago = (data.p || []).map(p =>
+    `<div class="pago">${esc(p[0])}: <b>${money(p[1])}</b></div>`
+  ).join("");
+
+  document.title = "Factura #" + data.s;
+
+  app.innerHTML = `
+    <div class="ticket">
+      <h1>Factura de venta #${esc(data.s)}</h1>
+      <div class="sub">${esc(data.f)}</div>
+      <table>
+        <thead><tr><th>Producto</th><th class="c">Cant.</th><th class="r">P. Unit.</th><th class="r">Subtotal</th></tr></thead>
+        <tbody>${filasItems}</tbody>
+      </table>
+      <div class="total"><span>TOTAL</span><span>${money(data.t)}</span></div>
+      <div class="pagos">${filasPago}</div>
+      <div class="foot">Gracias por tu compra</div>
+    </div>`;
+}
+
+render();
+window.addEventListener("hashchange", render);
+</script>
+</body>
+</html>

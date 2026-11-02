@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Factura - Peces Maravillosos</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #e6e8eb; }
+  body { font-family: "Consolas", "Courier New", monospace; color: #111; padding: 24px 12px; }
+  .ticket { background: #fff; max-width: 380px; margin: 0 auto; padding: 22px 20px 26px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .centro { text-align: center; }
+  .negocio { font-size: 17px; font-weight: 700; letter-spacing: .5px; margin: 0; }
+  .dato-neg { font-size: 12px; margin: 2px 0 0; }
+  .sep { border: 0; border-top: 1px dashed #666; margin: 12px 0; }
+  .fila { display: flex; justify-content: space-between; font-size: 13px; margin: 3px 0; gap: 10px; }
+  .fila b { font-weight: 700; }
+  .titulo-doc { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; font-weight: 700; border-bottom: 1px solid #111; padding: 4px 0; }
+  td { padding: 4px 0; vertical-align: top; }
+  .r { text-align: right; white-space: nowrap; }
+  .c { text-align: center; white-space: nowrap; }
+  .total { display: flex; justify-content: space-between; font-size: 16px; font-weight: 700; margin: 6px 0 2px; }
+  .pago { display: flex; justify-content: space-between; font-size: 13px; margin: 2px 0; }
+  .pie { font-size: 12px; margin-top: 6px; }
+  .aviso { font-size: 11.5px; color: #444; text-align: center; margin: 8px 0 0; }
+  .error { background: #fff; max-width: 380px; margin: 0 auto; padding: 22px; text-align: center; font-size: 14px; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+const NEGOCIO = "PECES MARAVILLOSOS";
+const DIRECCION = "Cra. 22 # 18-25";
+const TELEFONO = "Tel: +57 314 4680958";
+
+function b64UrlBytes(str) {
+  str = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (str.length % 4) str += "=";
+  const bin = atob(str);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+
+// Formato nuevo: "z." + base64(zlib). Formato antiguo: base64(JSON) sin comprimir.
+async function decodificar(hash) {
+  if (hash.startsWith("z.")) {
+    const stream = new Blob([b64UrlBytes(hash.slice(2))])
+      .stream()
+      .pipeThrough(new DecompressionStream("deflate"));
+    return JSON.parse(await new Response(stream).text());
+  }
+  return JSON.parse(new TextDecoder("utf-8").decode(b64UrlBytes(hash)));
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function money(n) {
+  return "$" + Math.round(Number(n) || 0).toLocaleString("es-CO");
+}
+
+function mostrarError(texto) {
+  document.getElementById("app").innerHTML = '<div class="error">' + esc(texto) + '</div>';
+}
+
+async function render() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) {
+    mostrarError("No se encontró información de factura en el enlace.");
+    return;
+  }
+  let data;
+  try {
+    data = await decodificar(hash);
+  } catch (e) {
+    mostrarError("El enlace de la factura no es válido.");
+    return;
+  }
+
+  const partes = (data.f || "").split(" ");
+  const fecha = partes[0] || "";
+  const hora = partes[1] || "";
+  const cliente = (data.c || "").trim() || "N/A";
+  const vendedor = (data.v || "").trim();
+  const items = data.i || [];
+  const offset = data.o || 0;
+  const k = data.k || 1;
+  const n = data.n || 1;
+
+  const filas = items.map(it =>
+    `<tr><td class="c">${esc(it[1])}</td><td>${esc(it[0])}</td>` +
+    `<td class="r">${money(it[2])}</td><td class="r">${money(it[1] * it[2])}</td></tr>`
+  ).join("");
+
+  const pagos = (data.p || []).map(p =>
+    `<div class="pago"><span>${esc(p[0])}</span><span>${money(p[1])}</span></div>`
+  ).join("");
+
+  const aviso = k > 1
+    ? `<p class="aviso">Parte ${esc(n)} de ${esc(k)}: productos ${offset + 1} a ${offset + items.length}.<br>Escanea el otro código para ver el resto.</p>`
+    : "";
+
+  document.title = "Factura " + data.s + " - Peces Maravillosos";
+
+  document.getElementById("app").innerHTML = `
+    <div class="ticket">
+      <p class="negocio centro">${esc(NEGOCIO)}</p>
+      <p class="dato-neg centro">${esc(DIRECCION)}</p>
+      <p class="dato-neg centro">${esc(TELEFONO)}</p>
+      <hr class="sep">
+      <p class="titulo-doc centro">Comprobante de venta</p>
+      <hr class="sep">
+      <div class="fila"><span>Venta N.º</span><b>${esc(data.s)}</b></div>
+      <div class="fila"><span>Fecha:</span><span>${esc(fecha)}</span></div>
+      <div class="fila"><span>Hora:</span><span>${esc(hora)}</span></div>
+      <div class="fila"><span>Cliente:</span><span>${esc(cliente)}</span></div>
+      ${vendedor ? `<div class="fila"><span>Le atendió:</span><span>${esc(vendedor)}</span></div>` : ""}
+      <hr class="sep">
+      ${aviso}
+      <table>
+        <thead><tr><th class="c">Cant</th><th>Producto</th><th class="r">Precio</th><th class="r">Total</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+      <hr class="sep">
+      <div class="total"><span>TOTAL</span><span>${money(data.t)}</span></div>
+      ${pagos}
+      <hr class="sep">
+      <p class="pie centro">Ticket de venta. No es factura electrónica.</p>
+      <p class="pie centro">¡Gracias por su compra!</p>
+    </div>`;
+}
+
+render();
+window.addEventListener("hashchange", render);
+</script>
+</body>
+</html>

@@ -65,6 +65,12 @@ function money(n) {
   return "$" + Math.round(Number(n) || 0).toLocaleString("es-CO");
 }
 
+// "2026-11-02" -> "02/11/2026"
+function formatearFecha(f) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(f.trim());
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : f;
+}
+
 function mostrarError(texto) {
   document.getElementById("app").innerHTML = '<div class="error">' + esc(texto) + '</div>';
 }
@@ -84,8 +90,8 @@ async function render() {
   }
 
   const partes = (data.f || "").split(" ");
-  const fecha = partes[0] || "";
-  const hora = partes[1] || "";
+  const fecha = formatearFecha(partes[0] || "");
+  const hora = (partes[1] || "").slice(0, 5);
   const cliente = (data.c || "").trim() || "N/A";
   const vendedor = (data.v || "").trim();
   const items = data.i || [];

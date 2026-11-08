@@ -94,6 +94,7 @@ async function render() {
   const hora = (partes[1] || "").slice(0, 5);
   const cliente = (data.c || "").trim() || "N/A";
   const vendedor = (data.v || "").trim();
+  const caja = (data.u || "").trim();
   const items = data.i || [];
   const offset = data.o || 0;
   const k = data.k || 1;
@@ -125,6 +126,7 @@ async function render() {
       <div class="fila"><span>Venta N.º</span><b>${esc(data.s)}</b></div>
       <div class="fila"><span>Fecha:</span><span>${esc(fecha)}</span></div>
       <div class="fila"><span>Hora:</span><span>${esc(hora)}</span></div>
+      ${caja ? `<div class="fila"><span>Caja:</span><span>${esc(caja)}</span></div>` : ""}
       <div class="fila"><span>Cliente:</span><span>${esc(cliente)}</span></div>
       ${vendedor ? `<div class="fila"><span>Le atendió:</span><span>${esc(vendedor)}</span></div>` : ""}
       <hr class="sep">
